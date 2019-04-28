@@ -9,7 +9,7 @@ from scipy.linalg import block_diag
 from scipy.sparse.linalg import svds
 
 
-###################### Kernel COmputation ##########################################
+###################### Kernel Computation ##########################################
 
 def RBF_kernel(x, y, gamma):
     """

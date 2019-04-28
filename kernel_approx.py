@@ -27,7 +27,7 @@ def run_BKA(data, ncluster, njobs, kernel, **param):
     :param kernel: Kernel to use
     :param param: Parameters of the kernel
     :return: Predicted clusters for each data point and corresponding
-    Block Kernel Approximation of the input matric
+    Block Kernel Approximation of the input matrix
     """
     KM = KMeans(n_clusters=ncluster, n_jobs=njobs)
     KM.fit(data)
@@ -97,7 +97,7 @@ def get_sub_G(sub1, sub2, kernel, **param):
     return sub_G
 
 
-def Nystrom(data, m, k, kernel, return_decompo=True, **param):
+def Nystrom(data, m, k, kernel, sample='random', return_decompo=True, **param):
     """
     :param data: Dataset of size n x d
     :param m: Number of samples used to compute the approximation
@@ -108,11 +108,61 @@ def Nystrom(data, m, k, kernel, return_decompo=True, **param):
     :param param: Parameters of the kernel
     :return: Nyström approximation of the Gram matrix of the dataset, using m samples and a rank-k factorization
     """
-    n = data.shape[0]
-    sample_ind = np.random.choice(np.arange(n), np.min([n, m]), replace=False)
-    sample = data[sample_ind]
+    if sample=='random':
+        n = data.shape[0]
+        sample_ind = np.random.choice(np.arange(n), np.min([n, m]), replace=False)
+        sample = data[sample_ind]
     C = get_sub_G(data, sample, kernel, **param)
     G = get_gram_matrix(sample, kernel, **param)
+    U, s, Ut = svds(G, k)
+    M = np.linalg.pinv(U @ np.diag(s) @ Ut)
+    if return_decompo:
+        return C, M
+    return C @ M @ C.T
+
+######################## Ensemble Nystrom ###################################################
+
+def EnsembleNystrom(data, m, k, kernel, n_experts, **param):
+    """
+    :param data: Dataset of size n x d
+    :param m: Number of samples used to compute the approximation
+    :param k: Target rank of the low-rank factorization
+    :param kernel: Kernel Function
+    :param n_experts: Number of experts aggregated
+    :param param: Parameters of the kernel
+    :return: Ensemble Nyström approximation of the Gram matrix of the dataset, with all experts having the
+     same weight as suggested in the original paper (Kumar, Mohri and Talwalkar, 2009).
+    """
+    n = data.shape[0]
+    sample_ind = np.random.choice(np.arange(n), np.min([n, n_experts*m]), replace=False)
+    sample_ind = np.array_split(sample_ind, n_experts)
+    sample_ind = [data[samp] for samp in sample_ind]
+    return np.mean([Nystrom(data, m, k, kernel, sample_ind[i], return_decompo=False, **param)
+                    for i in range(n_experts)])
+
+
+######################## KMeans Nystrom ###################################################
+
+def KMEANystrom(data, m, k, kernel, return_decompo=True, **param):
+    """
+    :param data: Dataset of size n x d
+    :param m: Number of samples used to compute the approximation
+    :param k: Target rank of the low-rank factorization
+    :param kernel: Kernel Function
+    :param n_experts: Number of experts aggregated
+    :param param: Parameters of the kernel
+    :return: Ensemble Nyström approximation of the Gram matrix of the dataset, with all experts having the
+     same weight as suggested in the original paper (Kumar, Mohri and Talwalkar, 2009).
+    """
+    n = data.shape[0]
+    if n > 20000: # following the suggestion from Zhang et al., 2012
+        sample_ind = np.random.choice(np.arange(n), 20000, replace=False)
+        sample = data[sample_ind]
+        centroids = KMeans(n_clusters=m).fit(sample).cluster_centers_
+    else:
+        centroids = KMeans(n_clusters=m).fit(data).cluster_centers_
+    C = get_sub_G(data, centroids, kernel, **param)
+    G = get_gram_matrix(centroids, kernel, **param)
     U, s, Ut = svds(G, k)
     M = np.linalg.pinv(U @ np.diag(s) @ Ut)
     if return_decompo:
