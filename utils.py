@@ -1,16 +1,10 @@
 import numpy as np
-from tqdm import tqdm
-from sklearn.datasets import load_svmlight_file
-from sklearn import preprocessing
 import matplotlib.pyplot as plt
-from copy import copy
-from sklearn.cluster import KMeans
+from tqdm import tqdm
 from scipy.linalg import block_diag
-from scipy.sparse.linalg import svds
 
 
-###################### Kernel COmputation ##########################################
-
+###################### Kernel Computation ##########################################
 def RBF_kernel(x, y, gamma):
     """
     :param x: vector of size d
@@ -93,6 +87,14 @@ def compute_distance(G1, G2):
     """
     return ((G1-G2)**2).sum()
 
+
+def relative_error(G1, G2):
+    """
+    :param G1: 2-D array
+    :param G2: 2-D array of same size as G1
+    :return: Relative kernel approximation error ||G1-G2||/||G1||
+    """
+    return np.sqrt(compute_distance(G1, G2)/(G1**2).sum())
 
 def build_G_from_MEKA(W, diag_L, L):
     """
