@@ -194,7 +194,7 @@ def solve_lsp(Ws, Wt, Gst):
     return l_term @ Ws.T @ Gst @ Wt @ r_term
 
 
-def MEKA(data, C, m, k, rho, kernel, **param):
+def MEKA(data, C, m, k, rho, kernel, epsilon=0.1, centroids=None, **param):
     """
     :param data: Dataset of size n x k
     :param C: Clusters
@@ -202,6 +202,8 @@ def MEKA(data, C, m, k, rho, kernel, **param):
     :param k: Rank of the Nyström approximation of each kernel block
     :param rho: Multiplier for the number of samples used in each off-diagonal block
     :param kernel: Kernel Function
+    :param epsilon: Threshold on centroids distance for setting to 0 the off-diagonal blocks
+    :param centroids: KMeans centroids of the clusters
     :param param: Parameters of the kernel function
     :return: diag_W: list of the C diagonal blocks in W, diag_L: list of the C diagonal
     blocks in L. all_L: 2-D List of off-diagonal blocks in L
@@ -220,14 +222,17 @@ def MEKA(data, C, m, k, rho, kernel, **param):
         l = []
         for j in range(n_cluster):
             if i != j:
-                size_i, size_j = np.min([cl_size[i], k*(1+rho)]), np.min([cl_size[j], k*(1+rho)])
-                vs = np.random.choice(np.arange(cl_size[i]), size_i, replace=False)
-                vt = np.random.choice(np.arange(cl_size[j]), size_j, replace=False)
-                vs_data = cl_ind[i][vs]
-                vt_data = cl_ind[j][vt]
-                g = get_sub_G(data[vs_data], data[vt_data], kernel, **param)
-                new_wl, new_wr = diag_W[i][vs], diag_W[j][vt]
-                l.append(solve_lsp(new_wl, new_wr, g))
+                if centroids is None or np.linalg.norm(centroids[i]-centroids[j]) < epsilon:
+                    size_i, size_j = np.min([cl_size[i], k*(1+rho)]), np.min([cl_size[j], k*(1+rho)])
+                    vs = np.random.choice(np.arange(cl_size[i]), size_i, replace=False)
+                    vt = np.random.choice(np.arange(cl_size[j]), size_j, replace=False)
+                    vs_data = cl_ind[i][vs]
+                    vt_data = cl_ind[j][vt]
+                    g = get_sub_G(data[vs_data], data[vt_data], kernel, **param)
+                    new_wl, new_wr = diag_W[i][vs], diag_W[j][vt]
+                    l.append(solve_lsp(new_wl, new_wr, g))
+                else:
+                    l.append(np.zeros((m, m)))
         all_L.append(l)
     return diag_W, diag_L, all_L
 

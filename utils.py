@@ -15,6 +15,16 @@ def RBF_kernel(x, y, gamma):
     return np.exp(-gamma*((x-y)**2).sum())
 
 
+def Laplacian_kernel(x, y, gamma):
+    """
+    :param x: vector of size d
+    :param y: vector of size d
+    :param gamma: scale parameter
+    :return: Laplacian Kernel between x and y with scaling parameter gamma
+    """
+    return np.exp(-gamma*np.absolute(x-y).sum())
+
+
 def get_gram_matrix(dataset, kernel, **param):
     """
     :param dataset: n x d array corresponding to n data points of size d
